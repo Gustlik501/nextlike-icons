@@ -1,103 +1,119 @@
-# Nextlike icons
+# nextlike-icons
 
-Personal-use NeXTSTEP/OPENSTEP-style freedesktop icon theme, implementing
-[Strahinja Radić's Nextlike recipe](https://www.strahinja.org/tekstovi/softver/wmaker/)
-(guide v0.9.3, 2025-11-14): gamma 0.6 for OPENSTEP TIFFs, GNUstep actions,
-48px action directories, brown folders, and replacement devices.
+A NeXTSTEP / OPENSTEP-style freedesktop icon theme for Linux desktops, built
+reproducibly with Nix from
+[Strahinja Radić's **Nextlike** recipe](https://www.strahinja.org/tekstovi/softver/wmaker/)
+(guide v0.9.3, 2025-11-14). Expect 48 px full-colour objects, brown folders,
+gamma-corrected OPENSTEP TIFFs and GNUstep action icons.
 
-**Includes proprietary NeXT/Apple artwork fetched at build time, for personal
-use only. Do not publish built outputs, binary caches, screenshots, or source
-artwork. Availability online is not a redistribution licence.** The resulting
-package is marked `unfree`, with Hydra disabled and substitution disabled.
-The build scripts do not change the running desktop.
+> [!CAUTION]
+> **Personal use only.** The build downloads proprietary NeXT/Apple artwork
+> from its original sources at build time. That artwork is not part of this
+> repo and must not be redistributed, **so this README has no screenshots**,
+> and you should not publish built outputs, binary caches or screenshots
+> either. Something being available online doesn't make it licensed for
+> redistribution. The package is marked `unfree`, with Hydra builds and
+> substitution disabled.
 
-## Build and contents
+The repo itself contains only packaging code (MIT) and one GPLv3 icon archive.
+See [Sources](#sources).
+
+## Install
+
+```nix
+# flake.nix
+inputs.nextlike-icons = {
+  url = "github:Gustlik501/nextlike-icons";
+  inputs.nixpkgs.follows = "nixpkgs";
+};
+
+nixpkgs.overlays = [ inputs.nextlike-icons.overlays.default ];  # pkgs.nextlike-icons
+nixpkgs.config.allowUnfreePredicate = pkg:
+  builtins.elem (lib.getName pkg) [ "nextlike-icons" ];
+```
+
+Home Manager:
+
+```nix
+gtk.enable = true;
+gtk.iconTheme = { name = "Nextlike"; package = pkgs.nextlike-icons; };
+home.packages = [ pkgs.papirus-icon-theme ];   # fallback for names Nextlike doesn't cover
+```
+
+On NixOS without Home Manager, add both packages to
+`environment.systemPackages` and set `gtk-icon-theme-name=Nextlike` in
+`~/.config/gtk-3.0/settings.ini`. `GTK_THEME` selects the widget theme, not
+the icon theme. If you use Home Manager with `useGlobalPkgs`, put the unfree
+predicate in your NixOS nixpkgs config.
+
+In Thunar, icon view at the normal (48 px) zoom shows the artwork at its
+original size. In Thunar 4.20 that's the 75% zoom level.
+
+## What gets installed
+
+- `share/icons/Nextlike/` with `index.theme`, context directories, PNG aliases and `icon-theme.cache`
+- `share/doc/nextlike-icons/coverage.tsv` (every requested icon name and its target), plus attribution and upstream notices
+
+All 35 of the recipe's icon names resolve within Nextlike itself. Anything
+else falls back to **Papirus**, then **hicolor**.
+
+## Sources
+
+Every archive is pinned by SHA-256 in `package.nix`:
+
+| Source | License | In this repo? |
+|---|---|---|
+| [GNUstep Icons 0.5](https://www.gnome-look.org/p/1239539) by abgr | GPLv3, as declared by the uploader | **Vendored** (`vendor/`): the only download link is a signed, expiring URL. See [vendor/README.md](vendor/README.md) |
+| [OPENSTEP icons 1.1](http://www.aiei.ch/gnustep/icons/one/openstepicons-1.1.tar.gz) | NeXT/Apple proprietary | No, fetched at build time. Plain HTTP because the site's certificate is invalid; the hash still guarantees integrity |
+| [GNUstep TIFF icons 1.0](http://www.aiei.ch/gnustep/icons/two/gnustep-icons-1.0.tar.gz) by Andrew Lindesay | LGPL-2.1-or-later | No, fetched |
+| [OpenBSD 7.8 wmicons 1.0p1](https://ftp.openbsd.org/pub/OpenBSD/7.8/packages/amd64/wmicons-1.0p1.tgz) | Mixed origin, not assumed redistributable | No, fetched. A versioned release stands in for the recipe's mutable snapshot URL |
+
+<details>
+<summary><b>How it differs from the recipe</b></summary>
+
+The conversion lives in `scripts/build-theme.py`. It removes symlinks before
+overwriting icons, so their targets aren't clobbered. It also takes TIFF frame
+0, clears crop offsets and strips PNG timestamps. It keeps the recipe's final
+blue `call-stop` overwrite and the composite user icon.
+
+Additions on top of the recipe:
+
+- `folder-open` uses the real gamma-corrected OPENSTEP open folder instead of an alias to the closed one.
+- `view-refresh` aliases the existing seek-forward action.
+- Symbolic-name aliases for navigation.
+- `text-x-shellscript` and `audio-wav` / `audio-vnd.wave` aliases, so Thunar doesn't show modern fallbacks.
+
+No modern fallback artwork is copied into the theme.
+
+</details>
+
+<details>
+<summary><b>Verification</b></summary>
 
 ```sh
 nix build
 nix flake check
-```
-
-Nixpkgs is locked to `885ba4d038f10c3d17d7a92e8c3cc185b99c9158`.
-Outputs: `packages.x86_64-linux.{default,nextlike-icons}`;
-overlay attribute: `pkgs.nextlike-icons`.
-
-- `$out/share/icons/Nextlike/index.theme`, context directories and PNG aliases
-- `$out/share/icons/Nextlike/icon-theme.cache` (generated with GTK3)
-- `$out/share/doc/nextlike-icons/coverage.tsv`, attribution and upstream notices
-
-All **35/35 requested names** (counting both archive names separately) resolve
-within Nextlike, without inheritance. The build validates every local alias,
-PNG header and advertised directory. The TSV lists each name and target.
-Uncovered names outside this list inherit **Papirus,hicolor**, both found in
-the user's profiles; Adwaita icons were absent. Install Papirus on other systems.
-
-## NixOS / Home Manager (declarative; apply yourself)
-
-Add a local flake input `nextlike-icons.url = "path:/data/SSD1/dotfilesprojects/nextlike-icons";`
-and `nextlike-icons.inputs.nixpkgs.follows = "nixpkgs";`, then:
-
-```nix
-# NixOS, or your Home Manager nixpkgs configuration:
-nixpkgs.overlays = [ inputs.nextlike-icons.overlays.default ];
-nixpkgs.config.allowUnfreePredicate = pkg:
-  builtins.elem (pkgs.lib.getName pkg) [ "nextlike-icons" ];
-
-# NixOS:
-environment.systemPackages = [ pkgs.nextlike-icons pkgs.papirus-icon-theme ];
-
-# Home Manager (instead of environment.systemPackages):
-gtk.enable = true;
-gtk.iconTheme = { name = "Nextlike"; package = pkgs.nextlike-icons; };
-home.packages = [ pkgs.papirus-icon-theme ];
-```
-
-Merge the predicate with existing unfree allowances. With standalone HM this
-goes in HM; with `useGlobalPkgs` use NixOS's nixpkgs configuration instead.
-For manual GTK3 configuration, set `gtk-icon-theme-name=Nextlike` under
-`[Settings]` in `~/.config/gtk-3.0/settings.ini`. `GTK_THEME` selects widget
-styling, **not** the icon theme. In Thunar select icon view / normal (48px)
-zoom (75% in Thunar 4.20) for the original-size artwork. No font is included or required.
-
-## Sources and recipe adjustments
-
-Every fetched archive is pinned by SHA-256 in `package.nix`:
-
-- [GNUstep Icons 0.5 by abgr](https://www.gnome-look.org/p/1239539): declared
-  GPLv3; original archive vendored because the OCS download is signed/expiring.
-  See [vendor/README.md](vendor/README.md) for provenance and licence caveat.
-- [OPENSTEP icons 1.1](http://www.aiei.ch/gnustep/icons/one/openstepicons-1.1.tar.gz):
-  NeXT/Apple proprietary artwork. Upstream notices installed with the output.
-  HTTP is necessary because the HTTPS certificate is invalid; the hash protects
-  integrity. Neither this archive nor its derived PNGs is committed.
-- [GNUstep TIFF icons 1.0](http://www.aiei.ch/gnustep/icons/two/gnustep-icons-1.0.tar.gz):
-  Andrew Lindesay, LGPL 2.1-or-later; original licence/README installed.
-- [OpenBSD 7.8 wmicons 1.0p1](https://ftp.openbsd.org/pub/OpenBSD/7.8/packages/amd64/wmicons-1.0p1.tgz):
-  mixed-origin artwork, not assumed redistributable; fetched only. A versioned
-  release replaces the recipe's mutable snapshots URL, using the same assets.
-
-The conversion is scripted in `scripts/build-theme.py`. It removes symlinks
-before overwriting icons (avoids clobbering their targets), selects TIFF frame 0,
-clears crop offsets, and omits PNG timestamps. It preserves the recipe's final
-blue `call-stop` overwrite and composite user icon. Changes beyond the recipe:
-`folder-open` gets the actual gamma-corrected OPENSTEP open folder rather than a
-closed-folder alias; `view-refresh` aliases the existing seek-forward action.
-Navigation gets symbolic-name aliases, and concrete `text-x-shellscript` and
-`audio-wav`/`audio-vnd.wave` MIME aliases avoid modern fallback icons observed
-in Thunar.
-No modern fallback artwork is copied into Nextlike. Packaging code is MIT
-licensed ([LICENSE](LICENSE)); that does not relicense any artwork.
-
-## Isolated verification
-
-```sh
 nix develop -c python3 scripts/visual-check.py result
 ```
 
-This creates `.work/nextlike-sheet.png` (40 labelled cells, 48px rendering on
-`#C0C0C0`), `.work/gtk-coverage.tsv`, `.work/thunar-mime-coverage.tsv`, and
-`.work/nextlike-thunar.png`.
-The helper runs GTK lookup and Thunar under its **own Xvfb and D-Bus session**,
-with private HOME/XDG configuration and a memory GSettings backend; never the
-live display or Thunar instance. It closes its own processes on exit. Generated
-artwork and screenshots stay ignored in `.work/` and must not be published.
+The build validates every alias, PNG header and advertised directory.
+`visual-check.py` renders a labelled contact sheet and checks GTK and Thunar
+icon lookup. It runs everything in its own Xvfb and D-Bus session with a
+throwaway HOME. Its output goes to the gitignored `.work/` directory and
+**must not be published**.
+
+</details>
+
+## License
+
+The packaging code is **MIT** ([LICENSE](LICENSE)). That does not relicense
+any artwork: each icon set keeps its own license, as listed above.
+
+---
+
+Part of a small retro-desktop set for Hyprland:
+[hypr-wmdeco](https://github.com/Gustlik501/hypr-wmdeco) ·
+[irixium-gtk-theme](https://github.com/Gustlik501/irixium-gtk-theme) ·
+[chicago95-cursors](https://github.com/Gustlik501/chicago95-cursors) ·
+[misc-fixed-ttf](https://github.com/Gustlik501/misc-fixed-ttf) ·
+**nextlike-icons**
